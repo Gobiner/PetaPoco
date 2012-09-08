@@ -162,18 +162,35 @@ foreach(Column col in from c in tbl.Columns where !c.Ignore select c)
 <# } else { #>
         [Column] 
 <# } #>
+<#	  if(col.IsLazyLoaded) { #>
+		[LazyLoaded]
+<#	  } #>
 		public <#=col.PropertyType #><#=CheckNullable(col)#> <#=col.PropertyName #> 
 		{ 
 			get
 			{
+<#	  if(col.IsLazyLoaded) { #>
+				if(!_<#= col.PropertyName #>IsLoaded)
+				{
+					var database = <#= RepoName #>.GetInstance();
+					_<#= col.PropertyName #> = database.Single<<#= col.PropertyType #><#= CheckNullable(col) #>>("SELECT " + database.EscapeSqlIdentifier("<#= col.Name #>") + " FROM " + database.EscapeTableName("<#= tbl.Name #>") + " WHERE " + database.EscapeSqlIdentifier("<#= tbl.PK.Name #>") + " = @0", this.<#= tbl.PK.PropertyName #>);
+					_<#= col.PropertyName #>IsLoaded = true;
+				}
+<# 	  } #>
 				return _<#=col.PropertyName #>;
 			}
 			set
 			{
 				_<#=col.PropertyName #> = value;
 				MarkColumnModified("<#=col.Name#>");
+<#	  if(col.IsLazyLoaded) { #>
+				_<#= col.PropertyName #>IsLoaded = true;
+<# } #>
 			}
 		}
+<#	  if(col.IsLazyLoaded) { #>
+		private bool _<#= col.PropertyName #>IsLoaded = false;
+<#	  } #>
 		<#=col.PropertyType #><#=CheckNullable(col)#> _<#=col.PropertyName #>;
 
 <# } else { #>

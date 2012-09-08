@@ -1,4 +1,4 @@
-<#@ template language="C#v3.5" hostspecific="True" #>
+﻿<#@ template language="C#v3.5" hostspecific="True" #>
 <#@ assembly name="EnvDTE" #>
 <#@ assembly name="System.Core.dll" #>
 <#@ assembly name="System.Data" #>
@@ -135,6 +135,7 @@ public class Column
     public bool IsNullable;
 	public bool IsAutoIncrement;
 	public bool Ignore;
+	public bool IsLazyLoaded;
 }
 
 public class Tables : List<Table>

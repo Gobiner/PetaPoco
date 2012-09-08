@@ -1,4 +1,4 @@
-﻿/* PetaPoco v4.0.3 - A Tiny ORMish thing for your POCO's.
+﻿/* PetaPoco v4.0.1 - A Tiny ORMish thing for your POCO's.
  * Copyright © 2011 Topten Software.  All Rights Reserved.
  * 
  * Apache License 2.0 - http://www.toptensoftware.com/petapoco/license
@@ -45,6 +45,13 @@ namespace PetaPoco
 		public string Name { get; set; }
 	}
 
+	// For pocos, marks property as lazily selected
+	[AttributeUsage(AttributeTargets.Property)]
+	public class LazyLoadedAttribute : ColumnAttribute
+	{
+		
+	}
+
 	// For explicit pocos, marks property as a result column and optionally supplies column name
 	[AttributeUsage(AttributeTargets.Property)]
 	public class ResultColumnAttribute : ColumnAttribute
@@ -65,7 +72,7 @@ namespace PetaPoco
 	}
 
 	// Specific the primary key of a poco class (and optional sequence name for Oracle)
-	[AttributeUsage(AttributeTargets.Class)]
+	[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 	public class PrimaryKeyAttribute : Attribute
 	{
 		public PrimaryKeyAttribute(string primaryKey)
@@ -591,7 +598,8 @@ namespace PetaPoco
 			{
 				var pd = PocoData.ForType(typeof(T));
 				var tableName = EscapeTableName(pd.TableInfo.TableName);
-				string cols = string.Join(", ", (from c in pd.QueryColumns select tableName + "." + EscapeSqlIdentifier(c)).ToArray());
+
+				string cols = string.Join(", ", pd.Columns.Values.Where(x => !x.IsLazyLoaded && !x.ResultColumn).Select(x => tableName + "." + EscapeSqlIdentifier(x.ColumnName)).ToArray());
 				if (!rxFrom.IsMatch(sql))
 					sql = string.Format("SELECT {0} FROM {1} {2}", cols, tableName, sql);
 				else
@@ -1673,6 +1681,7 @@ namespace PetaPoco
 			public string ColumnName;
 			public PropertyInfo PropertyInfo;
 			public bool ResultColumn;
+			public bool IsLazyLoaded;
 			public virtual void SetValue(object target, object val) { PropertyInfo.SetValue(target, val, null); }
 			public virtual object GetValue(object target) { return PropertyInfo.GetValue(target, null); }
 			public virtual object ChangeType(object val) { return Convert.ChangeType(val, PropertyInfo.PropertyType); }
@@ -1814,6 +1823,13 @@ namespace PetaPoco
 							continue;
 					}
 
+					// Work out if the column is lazily loaded
+					var LazyLoadAttrs = pi.GetCustomAttributes(typeof(LazyLoadedAttribute), true);
+					if (LazyLoadAttrs.Length > 0)
+					{
+						pc.IsLazyLoaded = true;
+					}
+
 					// Store it
 					Columns.Add(pc.ColumnName, pc);
 				}
@@ -1852,7 +1868,6 @@ namespace PetaPoco
 
 				try
 				{
-
 					// Check again, just in case
 					Delegate factory;
 					if (PocoFactories.TryGetValue(key, out factory))
